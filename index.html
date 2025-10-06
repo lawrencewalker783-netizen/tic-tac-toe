@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neon Tic Tac Toe</title>
+
+<!-- ✅ PWA Manifest (inline version) -->
+<link rel="manifest" id="inline-manifest">
+<script>
+const manifest = {
+  "name": "Neon Tic Tac Toe",
+  "short_name": "TicTacToe",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ffff",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+document.getElementById('inline-manifest').setAttribute('href', URL.createObjectURL(blob));
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
+body{background:radial-gradient(circle,#0a0a0f,#000);color:#0ff;text-align:center;overflow:hidden;}
+h1{font-size:3em;margin:20px 0;text-shadow:0 0 20px #0ff;}
+button{background:transparent;border:2px solid #0ff;color:#0ff;padding:10px 25px;margin:10px;
+border-radius:12px;font-size:1.1em;cursor:pointer;transition:0.2s;box-shadow:0 0 10px #0ff;}
+button:hover{background:#0ff;color:#000;}
+.hidden{display:none;}
+#menu,#gameScreen,#shopScreen,#skinsScreen,#leaderboardScreen{display:none;animation:fadeIn 0.4s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.board{display:grid;grid-template-columns:repeat(3,100px);grid-gap:8px;margin:20px auto;width:max-content;}
+.cell{width:100px;height:100px;border:2px solid #0ff;font-size:3em;display:flex;
+align-items:center;justify-content:center;cursor:pointer;transition:0.3s;box-shadow:0 0 10px #0ff;border-radius:12px;}
+.cell:hover{background:rgba(0,255,255,0.1);}
+#info{font-size:1.5em;margin-top:10px;}
+#score{margin-top:20px;}
+#coinsDisplay{margin-top:10px;font-size:1.2em;}
+.shop-item{display:block;margin:10px auto;padding:10px 20px;background:transparent;
+border:2px solid #0ff;color:#0ff;border-radius:10px;width:220px;cursor:pointer;}
+.winning-line{position:absolute;height:6px;background:#0ff;border-radius:3px;transform-origin:left center;
+box-shadow:0 0 10px #0ff;animation:glow 1s infinite alternate;}
+@keyframes glow{from{opacity:0.6;}to{opacity:1;}}
+.particle{position:absolute;width:6px;height:6px;border-radius:50%;
+animation:particleMove 1s ease-out forwards;}
+@keyframes particleMove{
+from{opacity:1;transform:translate(0,0);}
+to{opacity:0;transform:translate(var(--dx),var(--dy));}
+}
+</style>
+</head>
+<body>
+
+<!-- Menu -->
+<div id="menu">
+  <h1>✨ Neon Tic Tac Toe ✨</h1>
+  <button id="playBtn">Play</button>
+  <button id="shopBtn">Shop</button>
+  <button id="skinsBtn">Skins</button>
+  <button id="leaderboardBtn">Leaderboard</button>
+  <div id="coinsDisplay">💰 Coins: <span id="coins">0</span></div>
+</div>
+
+<!-- Game -->
+<div id="gameScreen" class="hidden">
+  <h1>Tic Tac Toe</h1>
+  <div id="info">X's Turn</div>
+  <div class="board" id="board"></div>
+  <div id="score">X: <span id="scoreX">0</span> | O: <span id="scoreO">0</span></div>
+  <button id="reset">Reset</button>
+  <button id="undo">Undo</button>
+  <button id="modeBtn">Mode: Human vs AI</button>
+  <button id="colorBtn">Change Text Color</button>
+  <button id="backMenu">🏠 Menu</button>
+</div>
+
+<!-- Shop -->
+<div id="shopScreen" class="hidden">
+  <h1>🛒 Shop</h1>
+  <button class="shop-item" data-cost="10" data-action="neon">Neon Board Glow (10)</button>
+  <button class="shop-item" data-cost="20" data-action="cyber">Cyber Background (20)</button>
+  <button id="backMenuShop">⬅️ Back</button>
+</div>
+
+<!-- Skins -->
+<div id="skinsScreen" class="hidden">
+  <h1>🎨 Skins</h1>
+  <div>
+    <button class="skin-button" data-x="❌">X: ❌</button>
+    <button class="skin-button" data-x="⚔️">X: ⚔️</button>
+    <button class="skin-button" data-x="🌟">X: 🌟</button>
+  </div>
+  <div>
+    <button class="skin-button" data-o="⭕">O: ⭕</button>
+    <button class="skin-button" data-o="🌀">O: 🌀</button>
+    <button class="skin-button" data-o="💎">O: 💎</button>
+  </div>
+  <button id="backSkins">⬅️ Back</button>
+</div>
+
+<!-- Leaderboard -->
+<div id="leaderboardScreen" class="hidden">
+  <h1>🏆 Leaderboard</h1>
+  <div id="leaderboardContent"></div>
+  <button id="backLeaderboard">⬅️ Back</button>
+</div>
+
+<!-- Sounds -->
+<audio id="moveSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.wav"></audio>
+<audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-video-game-win-2016.wav"></audio>
+<audio id="drawSound" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-game-notification-212.wav"></audio>
+<audio id="coinSound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.wav"></audio>
+
+<script>
+// ---------- GAME LOGIC ----------
+const menu=document.getElementById('menu');
+const gameScreen=document.getElementById('gameScreen');
+const boardEl=document.getElementById('board');
+const info=document.getElementById('info');
+const scoreXEl=document.getElementById('scoreX');
+const scoreOEl=document.getElementById('scoreO');
+const coinsEl=document.getElementById('coins');
+
+let board=['','','','','','','','',''];
+let currentPlayer='X';
+let humanVsAI=true;
+let score=JSON.parse(localStorage.getItem('score'))||{X:0,O:0};
+let coins=Number(localStorage.getItem('coins'))||0;
+let skinX=localStorage.getItem('skinX')||'❌';
+let skinO=localStorage.getItem('skinO')||'⭕';
+let textColor=localStorage.getItem('textColor')||'#0ff';
+let moveHistory=[];
+const winningCombos=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function switchScreen(id){
+  document.querySelectorAll('#menu,#gameScreen,#shopScreen,#skinsScreen,#leaderboardScreen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function initBoard(){
+  boardEl.innerHTML='';
+  for(let i=0;i<9;i++){
+    const cell=document.createElement('div');
+    cell.classList.add('cell');
+    cell.dataset.index=i;
+    boardEl.appendChild(cell);
+  }
+}
+initBoard();
+
+const cells=()=>document.querySelectorAll('.cell');
+document.getElementById('playBtn').onclick=()=>{switchScreen('gameScreen');resetGame();};
+document.getElementById('shopBtn').onclick=()=>switchScreen('shopScreen');
+document.getElementById('skinsBtn').onclick=()=>switchScreen('skinsScreen');
+document.getElementById('leaderboardBtn').onclick=()=>{switchScreen('leaderboardScreen');updateLeaderboard();};
+document.getElementById('backMenu').onclick=()=>switchScreen('menu');
+document.getElementById('backMenuShop').onclick=()=>switchScreen('menu');
+document.getElementById('backSkins').onclick=()=>switchScreen('menu');
+document.getElementById('backLeaderboard').onclick=()=>switchScreen('menu');
+
+document.getElementById('modeBtn').onclick=()=>{humanVsAI=!humanVsAI;
+document.getElementById('modeBtn').textContent=humanVsAI?"Mode: Human vs AI":"Mode: Human vs Human";};
+
+document.getElementById('colorBtn').onclick=()=>{
+  let c=prompt('Enter hex color for text, e.g. #0ff',textColor);
+  if(/^#([0-9A-F]{3}){1,2}$/i.test(c)){
+    textColor=c;localStorage.setItem('textColor',textColor);updateScore();
+  }
+};
+
+function updateScore(){
+  scoreXEl.textContent=score.X;scoreOEl.textContent=score.O;
+  coinsEl.textContent=coins;info.style.color=textColor;
+  scoreXEl.style.color=textColor;scoreOEl.style.color=textColor;
+  localStorage.setItem('score',JSON.stringify(score));
+  localStorage.setItem('coins',coins);
+}
+
+function checkWin(p){return winningCombos.find(c=>c.every(i=>board[i]===p));}
+function drawWinningLine(combo){
+  const line=document.createElement('div');
+  line.classList.add('winning-line');
+  const c1=cells()[combo[0]].getBoundingClientRect(),c2=cells()[combo[2]].getBoundingClientRect();
+  const r=boardEl.getBoundingClientRect();
+  line.style.left=(c1.left-r.left+c1.width/2)+'px';
+  line.style.top=(c1.top-r.top+c1.height/2)+'px';
+  line.style.width=Math.hypot(c2.left-c1.left,c2.top-c1.top)+'px';
+  line.style.transform=`rotate(${Math.atan2(c2.top-c1.top,c2.left-c1.left)}rad)`;
+  boardEl.appendChild(line);createParticles(combo);
+}
+
+function playMove(i,p){
+  board[i]=p;
+  cells()[i].textContent=(p==='X'?skinX:skinO);
+  moveHistory.push({i,p});
+  document.getElementById('moveSound').play();
+  if(navigator.vibrate)navigator.vibrate(50);
+  const winCombo=checkWin(p);
+  if(winCombo){
+    info.textContent=p+" Wins!";document.getElementById('winSound').play();
+    score[p]++;coins+=5;drawWinningLine(winCombo);updateScore();saveLeaderboard(p);return;
+  }
+  if(!board.includes('')){info.textContent="Draw!";document.getElementById('drawSound').play();return;}
+  currentPlayer=(p==='X'?'O':'X');info.textContent=currentPlayer+"'s Turn";
+  if(humanVsAI&&currentPlayer==='O'){setTimeout(aiMove,400);}
+}
+
+boardEl.addEventListener('click',e=>{
+  const c=e.target;if(c.classList.contains('cell')&&!board[c.dataset.index]&&(currentPlayer==='X'||!humanVsAI))
+    playMove(c.dataset.index,currentPlayer);
+});
+
+document.getElementById('reset').onclick=resetGame;
+document.getElementById('undo').onclick=undoMove;
+function resetGame(){board.fill('');cells().forEach(c=>c.textContent='');currentPlayer='X';
+info.textContent="X's Turn";moveHistory=[];document.querySelectorAll('.winning-line').forEach(l=>l.remove());}
+function undoMove(){if(!moveHistory.length)return;
+const last=moveHistory.pop();board[last.i]='';cells()[last.i].textContent='';
+currentPlayer=last.p;info.textContent=currentPlayer+"'s Turn";document.querySelectorAll('.winning-line').forEach(l=>l.remove());}
+
+function aiMove(){let e=board.map((v,i)=>v===''?i:null).filter(v=>v!==null);
+if(!e.length)return;let m=null;
+for(let c of winningCombos){let v=c.map(i=>board[i]);
+if(v.filter(x=>'O'===x).length===2&&v.includes('')){m=c[v.indexOf('')];break;}}
+if(m===null){for(let c of winningCombos){let v=c.map(i=>board[i]);
+if(v.filter(x=>'X'===x).length===2&&v.includes('')){m=c[v.indexOf('')];break;}}}
+if(m===null)m=e[Math.floor(Math.random()*e.length)];
+playMove(m,'O');}
+
+function createParticles(combo){for(let i=0;i<30;i++){let p=document.createElement('div');
+p.classList.add('particle');p.style.setProperty('--dx',(Math.random()-0.5)*100+'px');
+p.style.setProperty('--dy',(Math.random()-0.5)*100+'px');
+p.style.background=['#0ff','#f0f','#ff0'][Math.floor(Math.random()*3)];
+let cell=cells()[combo[1]];p.style.left=cell.offsetLeft+'px';
+p.style.top=cell.offsetTop+'px';boardEl.appendChild(p);setTimeout(()=>p.remove(),1000);}}
+
+document.querySelectorAll('.shop-item').forEach(btn=>{
+btn.onclick=()=>{let cost=+btn.dataset.cost;let action=btn.dataset.action;
+if(coins>=cost){coins-=cost;updateScore();applyShopItem(action);
+document.getElementById('coinSound').play();alert(action+' applied!');}
+else alert('Not enough coins!');}});
+
+function applyShopItem(a){
+if(a==='neon'){boardEl.style.boxShadow="0 0 25px #0ff";}
+else if(a==='cyber'){boardEl.style.background="linear-gradient(45deg,#0ff,#f0f,#00f)";}}
+
+document.querySelectorAll('.skin-button').forEach(b=>{
+b.onclick=()=>{if(b.dataset.x){skinX=b.dataset.x;localStorage.setItem('skinX',skinX);}
+if(b.dataset.o){skinO=b.dataset.o;localStorage.setItem('skinO',skinO);}};});
+
+function saveLeaderboard(p){
+let lb=JSON.parse(localStorage.getItem('leaderboard'))||[];
+lb.push({player:p,score:score[p]});
+localStorage.setItem('leaderboard',JSON.stringify(lb));}
+function updateLeaderboard(){
+let d=JSON.parse(localStorage.getItem('leaderboard'))||[];
+d=d.sort((a,b)=>b.score-a.score).slice(0,5);
+document.getElementById('leaderboardContent').innerHTML=d.map(x=>`<p>${x.player}: ${x.score}</p>`).join('');
+}
+let lastReward=localStorage.getItem('lastReward');
+let today=new Date().toDateString();
+if(lastReward!==today){
+coins+=5;localStorage.setItem('coins',coins);
+localStorage.setItem('lastReward',today);
+alert('🎁 Daily Reward: 5 Coins!');}
+updateScore();
+
+// ✅ INLINE SERVICE WORKER
+const swCode=`
+const cacheName='tic-tac-toe-v1';
+const assets=['./','./index.html'];
+self.addEventListener('install',e=>{
+ e.waitUntil(caches.open(cacheName).then(c=>c.addAll(assets)));
+});
+self.addEventListener('fetch',e=>{
+ e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+});
+`;
+const blobSW=new Blob([swCode],{type:'text/javascript'});
+const swUrl=URL.createObjectURL(blobSW);
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register(swUrl).then(()=>console.log('SW Registered'));
+}
+</script>
+</body>
+</html>
